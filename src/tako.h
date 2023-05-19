@@ -12,6 +12,7 @@ typedef enum TakoErr {
 	TAKO_ERR_STACK_OVERFLOW,
 	TAKO_ERR_STACK_UNDERFLOW,
 	TAKO_ERR_ILLEGAL_INSTRUCTION,
+	TAKO_ERR_ILLEGAL_MEMORY_ACCESS,
 	TAKO_ERR_ILLEGAL_OPERAND,
 	TAKO_ERR_ILLEGAL_INSTRUCTION_ACCESS,
 	TAKO_ERR_DIVISION_BY_ZERO,
@@ -26,12 +27,21 @@ typedef union TakoWord {
 	void* pval;
 } TakoWord;
 
+typedef struct TakoStack {
+	TakoWord data[TAKO_MAXIMUM_STACK_SIZE];
+	uint64_t size;
+} TakoStack;
+
+void tako_stack_dump(TakoStack* stack);
+
 typedef enum TakoInstType {
 	TAKO_INST_NONE = 0,
 	TAKO_INST_HALT,
 	TAKO_INST_JMP,
 	TAKO_INST_JMPIF,
 	TAKO_INST_COPY,
+	TAKO_INST_SWAP,
+	TAKO_INST_DROP,
 	
 	TAKO_INST_PUSHI,
 	TAKO_INST_ADDI,
@@ -48,6 +58,7 @@ typedef enum TakoInstType {
 
 const char* tako_inst_type_as_cstr(TakoInstType type);
 bool tako_inst_type_has_operand(TakoInstType type);
+int tako_inst_type_stack_usage(TakoInstType type);
 
 typedef struct TakoInst {
 	TakoInstType type;
@@ -58,6 +69,8 @@ TakoInst tako_inst_halt(void);
 TakoInst tako_inst_jmp(uint64_t addr);
 TakoInst tako_inst_jmpif(uint64_t addr);
 TakoInst tako_inst_copy(uint64_t addr);
+TakoInst tako_inst_swap(uint64_t addr);
+TakoInst tako_inst_drop(void);
 TakoInst tako_inst_pushi(int64_t val);
 TakoInst tako_inst_addi(void);
 TakoInst tako_inst_subi(void);
@@ -79,13 +92,6 @@ void tako_program_push_inst(TakoProgram* program, TakoInst inst);
 void tako_save_program_to_file(TakoProgram* program, const char* file_path);
 void tako_load_program_from_file(TakoProgram* program, const char* file_path);
 
-typedef struct TakoStack {
-	TakoWord data[TAKO_MAXIMUM_STACK_SIZE];
-	uint64_t size;
-} TakoStack;
-
-void tako_stack_dump(TakoStack* stack);
-
 typedef struct TakoRuntime {
 	TakoProgram program;
 	TakoStack stack;
@@ -93,7 +99,7 @@ typedef struct TakoRuntime {
 	uint64_t program_cursor;
 } TakoRuntime;
 
-void tako_runtime_run(TakoRuntime* trt);
+void tako_runtime_run(TakoRuntime* trt, bool debug);
 
 #endif
 
@@ -132,10 +138,28 @@ TakoErr _tako_runtime_run(TakoRuntime* trt)
 		case TAKO_INST_COPY: {
 			if(trt->stack.size < 1)
 				return TAKO_ERR_STACK_UNDERFLOW;
-			if(trt->stack.size - 1 - inst.operand.uval >= trt->stack.size)
+			if(trt->stack.size - inst.operand.uval <= 0)
 				return TAKO_ERR_STACK_UNDERFLOW;
 			trt->stack.data[trt->stack.size] = trt->stack.data[trt->stack.size - 1 - inst.operand.uval];
 			trt->stack.size += 1;
+			trt->program_cursor += 1;
+		} break;
+		case TAKO_INST_SWAP: {
+			if(inst.operand.uval >= TAKO_MAXIMUM_STACK_SIZE)
+				return TAKO_ERR_ILLEGAL_MEMORY_ACCESS;
+			if(trt->stack.size - inst.operand.uval <= 0)
+				return TAKO_ERR_STACK_UNDERFLOW;
+			const uint64_t a = trt->stack.size - 1;
+			const uint64_t b = trt->stack.size - 1 - inst.operand.uval;
+			TakoWord t = trt->stack.data[a];
+			trt->stack.data[a] = trt->stack.data[b];
+			trt->stack.data[b] = t;
+			trt->program_cursor += 1;
+		} break;
+		case TAKO_INST_DROP: {
+			if(trt->stack.size < 1)
+				return TAKO_ERR_STACK_UNDERFLOW;
+			trt->stack.size -= 1;
 			trt->program_cursor += 1;
 		} break;
 		case TAKO_INST_PUSHI: {
@@ -223,11 +247,17 @@ TakoErr _tako_runtime_run(TakoRuntime* trt)
 	return TAKO_ERR_NONE;
 }
 
-void tako_runtime_run(TakoRuntime* trt)
+void tako_runtime_run(TakoRuntime* trt, bool debug)
 {
 	trt->halt = false;
 	trt->program_cursor = 0;
 	while(!trt->halt) {
+		if(debug) {
+			tako_stack_dump(&trt->stack);
+			printf("EXECUTING (%zu) %s(%ld)\n", trt->program_cursor, 
+			tako_inst_type_as_cstr(trt->program.insts[trt->program_cursor].type),
+			trt->program.insts[trt->program_cursor].operand.ival);
+		}
 		TakoErr err = _tako_runtime_run(trt);
 		if(err != TAKO_ERR_NONE) {
 			printf("ERROR: %s\n", tako_err_as_cstr(err));
@@ -298,6 +328,8 @@ void tako_load_program_from_file(TakoProgram* program, const char* file_path)
 void tako_stack_dump(TakoStack* stack)
 {
 	printf("STACK(%zu):\n", stack->size);
+	if(stack->size == 0)
+		printf("  EMPTY\n");
 	for(uint64_t i = 0; i < stack->size; ++i) {
 		printf("[%zu]  %ld\n", i, stack->data[i].ival);
 	}
@@ -314,6 +346,7 @@ const char* tako_err_as_cstr(TakoErr err)
 		case TAKO_ERR_ILLEGAL_OPERAND: return "Illegal operand";
 		case TAKO_ERR_ILLEGAL_INSTRUCTION_ACCESS: return "Illegal instruction access";
 		case TAKO_ERR_DIVISION_BY_ZERO: return "Division by zero";
+		case TAKO_ERR_ILLEGAL_MEMORY_ACCESS: return "Illegal memory access";
 		default: assert(0 && "Invalid error type");
 	}
 	assert(0 && "Invalid error type");
@@ -329,6 +362,8 @@ const char* tako_inst_type_as_cstr(TakoInstType type)
 		case TAKO_INST_JMP: return "jmp";
 		case TAKO_INST_JMPIF: return "jmpif";
 		case TAKO_INST_COPY: return "copy";
+		case TAKO_INST_SWAP: return "swap";
+		case TAKO_INST_DROP: return "drop";
 		case TAKO_INST_PUSHI: return "pushi";
 		case TAKO_INST_ADDI: return "addi";
 		case TAKO_INST_SUBI: return "subi";
@@ -355,6 +390,8 @@ bool tako_inst_type_has_operand(TakoInstType type)
 		case TAKO_INST_JMP: return true;
 		case TAKO_INST_JMPIF: return true;
 		case TAKO_INST_COPY: return true;
+		case TAKO_INST_SWAP: return true;
+		case TAKO_INST_DROP: return false;
 		case TAKO_INST_PUSHI: return true;
 		case TAKO_INST_ADDI: return false;
 		case TAKO_INST_SUBI: return false;
@@ -372,10 +409,40 @@ bool tako_inst_type_has_operand(TakoInstType type)
 	return NULL;
 }
 
+int tako_inst_type_stack_usage(TakoInstType type)
+{
+	switch (type)
+	{
+		case TAKO_INST_NONE: return 0;
+		case TAKO_INST_HALT: return 0;
+		case TAKO_INST_JMP: return 0;
+		case TAKO_INST_JMPIF: return -1;
+		case TAKO_INST_COPY: return 1;
+		case TAKO_INST_SWAP: return 0;
+		case TAKO_INST_DROP: return -1;
+		case TAKO_INST_PUSHI: return 1;
+		case TAKO_INST_ADDI: return -1;
+		case TAKO_INST_SUBI: return -1;
+		case TAKO_INST_MULI: return -1;
+		case TAKO_INST_DIVI: return -1;
+		case TAKO_INST_EQI: return -1;
+		case TAKO_INST_NEQI: return -1;
+		case TAKO_INST_GTI: return -1;
+		case TAKO_INST_GTEI: return -1;
+		case TAKO_INST_LTI: return -1;
+		case TAKO_INST_LTEI: return -1;
+		default: assert(0 && "Invalid instruction type");
+	}
+	assert(0 && "Invalid instruction type");
+	return 0;
+}
+
 TakoInst tako_inst_halt(void) { return (TakoInst) { .type = TAKO_INST_HALT, }; }
 TakoInst tako_inst_jmp(uint64_t addr) { return (TakoInst) { .type = TAKO_INST_JMP, .operand = { .uval = addr } }; }
 TakoInst tako_inst_jmpif(uint64_t addr) { return (TakoInst) { .type = TAKO_INST_JMPIF, .operand = { .uval = addr } }; }
 TakoInst tako_inst_copy(uint64_t addr) { return (TakoInst) { .type = TAKO_INST_COPY, .operand = { .uval = addr } }; }
+TakoInst tako_inst_swap(uint64_t addr) { return (TakoInst) { .type = TAKO_INST_SWAP, .operand = { .uval = addr } }; }
+TakoInst tako_inst_drop(void) { return (TakoInst) { .type = TAKO_INST_DROP, }; }
 TakoInst tako_inst_pushi(int64_t val) { return (TakoInst) { .type = TAKO_INST_PUSHI, .operand = { .ival = val } }; }
 TakoInst tako_inst_addi(void) { return (TakoInst) { .type = TAKO_INST_ADDI, }; }
 TakoInst tako_inst_subi(void) { return (TakoInst) { .type = TAKO_INST_SUBI, }; }
