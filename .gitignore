@@ -1,2 +1,3 @@
-*.tako
 build/*
+example/*.tako
+.vscode

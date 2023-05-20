@@ -1,0 +1,9 @@
+var x = 34
+var y = 35
+var a = x + y
+x = 64\n
+var b = x - y\n
+var c = x == y\n
+var d = x != y\n
+var e = x >= y\n
+var f = x <= y\n
