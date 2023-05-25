@@ -1,18 +1,9 @@
-CFLAGS = -Wall -Wextra -pedantic -Isrc -g
+CFLAGS = -Wall -Wextra -pedantic -Isrc -Iinclude -g
 
-all: ./build ./build/tako ./build/takocc ./example/variable.tako
+all: ./build/tako ./build/ramen
 
-./build/takocc: ./src/takocc.c
-	$(CC) $(CFLAGS) -o $@ $^	
-
-./build/tako: ./src/takort.c
+./build/ramen: ./src/common.c ./src/ramen_lexer.c ./src/ramen_parser.c ./src/ramen.c
 	$(CC) $(CFLAGS) -o $@ $^
 
-./example/variable.tako: ./example/variable.tc
-	./build/takocc $@ $^
-
-./build:
-	mkdir $@
-
-./example:
-	mkdir $@
+./build/tako: ./src/common.c ./src/tako.c
+	$(CC) $(CFLAGS) -o $@ $^

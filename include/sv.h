@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 typedef struct StringView {
     const char* data;

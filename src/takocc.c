@@ -1,12 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
 #include <assert.h>
 
-#define SV_IMPLEMENTATION
 #include "sv.h"
-
-#define TAKO_IMPLEMENTATION
 #include "tako.h"
 
 #define TAKOCC_MAXIMUM_TOKENS 1024
