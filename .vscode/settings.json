@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "stdio.h": "c",
-        "ramen_lexer.h": "c"
+        "ramen_lexer.h": "c",
+        "ramen_parser.h": "c"
     }
 }

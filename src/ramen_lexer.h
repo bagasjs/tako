@@ -29,6 +29,8 @@ typedef enum RamenTokenType {
     RAMEN_TOKEN_GTE,
     RAMEN_TOKEN_LT,
     RAMEN_TOKEN_LTE,
+
+    RAMEN_TOKEN_WHITESPACE,
 } RamenTokenType;
 
 const char* ramen_token_type_as_cstr(RamenTokenType type);
@@ -39,6 +41,16 @@ typedef struct RamenToken {
     int line;
     const char* file_path;
 } RamenToken;
+
+typedef struct RamenTokenList {
+    size_t size;
+    size_t capacity;
+    RamenToken* data;
+} RamenTokenList;
+
+RamenTokenList ramen_token_list_alloc(void);
+void ramen_token_list_free(RamenTokenList collection);
+void ramen_token_list_append(RamenTokenList* collection, RamenToken token);
 
 typedef struct RamenLexer {
     uint64_t i;

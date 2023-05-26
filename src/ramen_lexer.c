@@ -1,6 +1,7 @@
 #include "ramen_lexer.h"
 
-#include <stdio.h>
+#include <memory.h>
+#include <stdlib.h>
 #include "sv.h"
 
 bool ramen_lexer_next_token(RamenLexer* lexer, RamenToken* token)
@@ -14,7 +15,15 @@ bool ramen_lexer_next_token(RamenLexer* lexer, RamenToken* token)
     token->line = lexer->current_line + 1;
 
     switch (lexer->source.data[lexer->i]) {
+        case '\t':
+        case '\r':
+        case ' ': {
+            token->literal = (StringView){ .data = &lexer->source.data[lexer->i], .size = 1 };
+            token->type = RAMEN_TOKEN_WHITESPACE;
+        } break;
         case '\n': {
+            token->literal = (StringView){ .data = &lexer->source.data[lexer->i], .size = 1 };
+            token->type = RAMEN_TOKEN_WHITESPACE;
             lexer->current_line += 1;
         } break;
         case '+': {
@@ -145,7 +154,37 @@ const char* ramen_token_type_as_cstr(RamenTokenType type)
         case RAMEN_TOKEN_GTE: return "RAMEN_TOKEN_GTE";
         case RAMEN_TOKEN_LT: return "RAMEN_TOKEN_LT";
         case RAMEN_TOKEN_LTE: return "RAMEN_TOKEN_LTE";
+        case RAMEN_TOKEN_WHITESPACE: return "RAMEN_TOKEN_WHITESPACE";
+        case RAMEN_TOKEN_UNKNOWN: break;
     }
     return "RAMEN_TOKEN_UNKNOWN";
 }
 
+RamenTokenList ramen_token_list_alloc(void)
+{
+    RamenToken* tokens = malloc(sizeof(RamenToken) * 4);
+    return (RamenTokenList) {
+        .size = 0,
+        .capacity = 4,
+        .data = tokens
+    };
+}
+
+void ramen_token_list_free(RamenTokenList collection)
+{
+    free(collection.data);
+}
+
+void ramen_token_list_append(RamenTokenList* collection, RamenToken token)
+{
+    if(collection == NULL) return;
+    if(collection->size + 1 > collection->capacity) {
+        RamenToken* old_data = collection->data;
+        size_t old_capacity = collection->capacity;
+        collection->capacity = old_capacity * 2;
+        collection->data = malloc(sizeof(RamenToken) * collection->capacity);
+        memcpy(collection->data, old_data, sizeof(RamenToken) * old_capacity);
+        free(old_data);
+    }
+    collection->data[collection->size++] = token;
+}
