@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "common.h"
 #include "ramen_lexer.h"
+#include "ramen_parser.h"
 
 int main(int argc, char** argv)
 {
@@ -19,6 +20,12 @@ int main(int argc, char** argv)
         RamenTokenList tokens = ramen_token_list_alloc();
         while(ramen_lexer_next_token(&lex, &token) && token.type != RAMEN_TOKEN_UNKNOWN) {
             ramen_token_list_append(&tokens, token);
+        }
+        RamenParser parser = { .i = 0, .tokens = tokens };
+        RamenStmt stmt = {0};
+        RamenBlock program = ramen_block_alloc();
+        while(ramen_parser_next_stmt(&parser, &stmt)) {
+            ramen_block_append_stmt(&program, stmt);
         }
 
         for(size_t i = 0; i < tokens.size; ++i) {
