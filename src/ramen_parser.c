@@ -110,6 +110,6 @@ void ramen_block_append_stmt(RamenBlock* block, RamenStmt stmt)
         memcpy(block->data, old_data, sizeof(RamenStmt) * old_capacity);
         free(old_data);
     }
-    printf("Test\n");
+    // printf("Test\n");
     block->data[block->size++] = stmt;
 }
