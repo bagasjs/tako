@@ -29,10 +29,10 @@ type QueryBuilder struct {
     qUpdate updateQuery
 }
 
-func SelectFrom(table string, columns ...string) *QueryBuilder {
+func Select(columns ...string) *QueryBuilder {
     return &QueryBuilder{
         operation: qOpSelect,
-        tableName: table,
+        tableName: "",
         conditions: make([]string, 0),
         conditionValues: make([]interface{}, 0),
 
@@ -43,7 +43,7 @@ func SelectFrom(table string, columns ...string) *QueryBuilder {
     }
 }
 
-func UpdateTable(table string) *QueryBuilder {
+func Update(table string) *QueryBuilder {
     return &QueryBuilder{
         operation: qOpUpdate,
         tableName: table,
@@ -55,6 +55,11 @@ func UpdateTable(table string) *QueryBuilder {
         },
     }
 
+}
+
+func (q *QueryBuilder) Table(name string) *QueryBuilder {
+    q.tableName = name
+    return q
 }
 
 func (q *QueryBuilder) Where(column string, operator string, value interface{}) *QueryBuilder {

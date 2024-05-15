@@ -6,7 +6,12 @@ import (
 	"github.com/bagasjs/tako/core"
 )
 
-func TestQueryBuilder(t *testing.T) {
-    t.Log(core.SelectFrom("users", "name", "values", "test").Where("name", "=", "Bagas").ToString())
-    t.Log(core.UpdateTable("users").Set("age", 10).Where("name", "=", "Bagas").ToString())
+func TestSelect(t *testing.T) {
+    res := core.SelectFrom("users", "id", "name").Where("email", "=", "foo@bar.com").ToString()
+    t.Log(res)
+}
+
+func TestUpdate(t *testing.T) {
+    res := core.UpdateTable("users").Set("age", 10).Where("email", "=", "foo@bar.com").ToString()
+    t.Log(res)
 }
