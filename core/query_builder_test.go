@@ -7,11 +7,11 @@ import (
 )
 
 func TestSelect(t *testing.T) {
-    res := core.SelectFrom("users", "id", "name").Where("email", "=", "foo@bar.com").ToString()
+    res := core.Select("users", "id", "name").Where("email", "=", "foo@bar.com").ToString()
     t.Log(res)
 }
 
 func TestUpdate(t *testing.T) {
-    res := core.UpdateTable("users").Set("age", 10).Where("email", "=", "foo@bar.com").ToString()
+    res := core.Update("users").Set("age", 10).Where("email", "=", "foo@bar.com").ToString()
     t.Log(res)
 }

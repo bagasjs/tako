@@ -10,7 +10,6 @@ const qOpUpdate = "UPDATE"
 
 type selectQuery struct {
     columns []string
-    limit uint
 }
 
 type updateQuery struct {
@@ -25,6 +24,7 @@ type QueryBuilder struct {
     conditions []string
     conditionValues []interface{}
     
+    limit uint
     qSelect selectQuery
     qUpdate updateQuery
 }
@@ -35,10 +35,10 @@ func Select(columns ...string) *QueryBuilder {
         tableName: "",
         conditions: make([]string, 0),
         conditionValues: make([]interface{}, 0),
+        limit: 0,
 
         qSelect : selectQuery {
             columns: columns,
-            limit: 1,
         },
     }
 }
@@ -54,7 +54,6 @@ func Update(table string) *QueryBuilder {
             columnValues: make([]interface{}, 0),
         },
     }
-
 }
 
 func (q *QueryBuilder) Table(name string) *QueryBuilder {
@@ -63,34 +62,16 @@ func (q *QueryBuilder) Table(name string) *QueryBuilder {
 }
 
 func (q *QueryBuilder) Where(column string, operator string, value interface{}) *QueryBuilder {
-    q.conditions = append(q.conditions, fmt.Sprintf("%s %s ?", column, operator))
+    q.conditions = append(q.conditions, fmt.Sprintf("%s%s?", column, operator))
     q.conditionValues = append(q.conditionValues, value)
     return q
 }
 
 func (q *QueryBuilder) Limit(amount uint) *QueryBuilder {
     if q.operation == qOpSelect {
-        q.qSelect.limit = amount
+        q.limit = amount
     }
     return q
-}
-
-func (q *QueryBuilder) toSelectQueryString() string {
-    var columnsString = "*"
-    var conditionsString = ""
-    if len(q.qSelect.columns) != 0 {
-        columnsString = strings.Join(q.qSelect.columns, ",")
-    }
-
-    if len(q.conditions) != 0 {
-        conditionsString = fmt.Sprintf("WHERE %s", strings.Join(q.conditions, ","))
-    }
-
-    if q.qSelect.limit != 0 {
-        return fmt.Sprintf("SELECT %s FROM %s %s LIMIT %d", columnsString, q.tableName, conditionsString, q.qSelect.limit)
-    } else {
-        return fmt.Sprintf("SELECT %s FROM %s %s", columnsString, q.tableName, conditionsString)
-    }
 }
 
 func (q *QueryBuilder) Set(column string, value interface{}) *QueryBuilder {
@@ -99,13 +80,36 @@ func (q *QueryBuilder) Set(column string, value interface{}) *QueryBuilder {
     return q
 }
 
+func (q *QueryBuilder) toSelectQueryString() string {
+    columnsString := "*"
+    if len(q.qSelect.columns) != 0 {
+        columnsString = strings.Join(q.qSelect.columns, ",")
+    }
+
+    conditionsString := ""
+    if len(q.conditions) != 0 {
+        conditionsString = fmt.Sprintf("WHERE %s", strings.Join(q.conditions, ","))
+    }
+
+    if q.limit != 0 {
+        return fmt.Sprintf("SELECT %s FROM %s %s LIMIT %d", columnsString, q.tableName, conditionsString, q.limit)
+    } else {
+        return fmt.Sprintf("SELECT %s FROM %s %s", columnsString, q.tableName, conditionsString)
+    }
+}
+
 func (q *QueryBuilder) toUpdateQueryString() string {
     sets := strings.Join(q.qUpdate.columns, ",")
-    if len(q.conditions) > 0 {
-        conditions := strings.Join(q.conditions, ",")
-        return fmt.Sprintf("UPDATE %s SET %s WHERE %s", q.tableName, sets, conditions)
+
+    conditionsString := ""
+    if len(q.conditions) != 0 {
+        conditionsString = fmt.Sprintf("WHERE %s", strings.Join(q.conditions, ","))
+    }
+
+    if q.limit != 0 {
+        return fmt.Sprintf("UPDATE %s SET %s %s LIMIT %d", q.tableName, sets, conditionsString, q.limit)
     } else {
-        return fmt.Sprintf("UPDATE %s SET %s", q.tableName, sets)
+        return fmt.Sprintf("UPDATE %s SET %s %s", q.tableName, sets, conditionsString)
     }
 }
 
