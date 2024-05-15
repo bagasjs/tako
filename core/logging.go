@@ -1,4 +1,4 @@
-package tako
+package core 
 
 import (
 	"fmt"
